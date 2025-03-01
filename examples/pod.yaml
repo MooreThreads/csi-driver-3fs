@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-test0
+  namespace: default
+spec:
+  containers:
+   - name: csi-3fs-test-nginx
+     image: nginx:latest
+     volumeMounts:
+       - mountPath: /usr/share/nginx/html/
+         name: webroot
+  volumes:
+   - name: webroot
+     persistentVolumeClaim:
+       claimName: demo0
+       readOnly: false

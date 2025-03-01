@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: csi-3fs-provisioner-sa
+  namespace: csi-3fs-system
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-3fs-external-provisioner-runner
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "volumeattachments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-3fs-provisioner-role
+subjects:
+  - kind: ServiceAccount
+    name: csi-3fs-provisioner-sa
+    namespace: csi-3fs-system
+roleRef:
+  kind: ClusterRole
+  name: csi-3fs-external-provisioner-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: csi-3fs-provisioner
+  namespace: csi-3fs-system
+  labels:
+    app: csi-3fs-provisioner
+spec:
+  selector:
+    app: csi-3fs-provisioner
+  ports:
+    - name: csi-3fs-dummy
+      port: 65535
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: csi-3fs-provisioner
+  namespace: csi-3fs-system
+spec:
+  serviceName: "csi-3fs-provisioner"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: csi-3fs-provisioner
+  template:
+    metadata:
+      labels:
+        app: csi-3fs-provisioner
+    spec:
+      serviceAccount: csi-3fs-provisioner-sa
+      tolerations:
+        - operator: "Exists"
+      containers:
+        - name: csi-provisioner
+          image: csi-provisioner:v3.4.0
+          args:
+            - "--csi-address=$(ADDRESS)"
+            - "--v=4"
+          env:
+            - name: ADDRESS
+              value: /var/lib/kubelet/plugins/3fs.csi.mthreads.com/csi.sock
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/kubelet/plugins/3fs.csi.mthreads.com
+        - name: csi-3fs
+          image: xxx/xxx/csi-3fs:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(NODE_ID)"
+            - "--v=4"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///var/lib/kubelet/plugins/3fs.csi.mthreads.com/csi.sock
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/kubelet/plugins/3fs.csi.mthreads.com
+      volumes:
+        - name: socket-dir
+          emptyDir: {}

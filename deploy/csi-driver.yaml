@@ -1,0 +1,14 @@
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: 3fs.csi.mthreads.com
+  labels:
+    app.kubernetes.io/instance: 3fs.csi.mthreads.com
+    app.kubernetes.io/part-of: csi-driver-3fs
+    app.kubernetes.io/name: 3fs.csi.mthreads.com
+    app.kubernetes.io/component: csi-driver
+spec:
+  volumeLifecycleModes:
+  - Persistent
+  podInfoOnMount: true
+  fsGroupPolicy: File
